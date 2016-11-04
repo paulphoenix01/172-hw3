@@ -39,15 +39,15 @@ TransformStream.prototype._clonePattern = function(pattern){
 // Flush
 TransformStream.prototype._flush = function(done){
 	var match = null;
-	while((match = this._pattern.exec(this._inputBuffer)) !== null){
-		this.push(match[0]);
-	}
-
-	this._inputBuffer="";
-	this.push(null);
 	
 	//print the output when done()
-	console.log(">>>>>>>>>>>> OUTPUT <<<<<<<<<<<<\n", output);
+	console.log(">>>>>>>>>>>> OUTPUT <<<<<<<<<<<<\n", output);	
+	console.log("\n_flush:", this._inputBuffer);
+
+	
+	this._inputBuffer="";
+	this.push(null);
+
 	done();
 	
 };
@@ -60,10 +60,17 @@ TransformStream.prototype._transform = function(chunk, encoding, getNextChunk){
 
 	var nextOffset = null
 	var match = null
+
 	while((match = this._pattern.exec(this._inputBuffer)) !== null){
+		var count = 1;
+		if(/^[a-zA-Z]+$/.test(match[0])){
+			count = match[0].length;}
+
+
 		if(this._pattern.lastIndex < this._inputBuffer.length){
-			// console.log("Push:", match[0]);
-			this.push(match[0]);
+			this.push(chunk.toString().substring(nextOffset, this._pattern.lastIndex-count));
+
+
 			nextOffset = this._pattern.lastIndex;
 		}else{
 			nextOffset = match.index;
@@ -87,11 +94,13 @@ var inputStream = fs.createReadStream('./input-sensor.txt');
 // Commander Program Module for input. Input = process.argv[3]
 program.option('-p, --pattern <pattern>', 'Input Pattern such as . or ,').parse(process.argv);
 
-// Put pattern as string
-var input_pattern = "[^" + process.argv[3] + "]+";
+var regex = null;
+if(program.pattern === ","){ regex =/\,+/i; }
+else if(program.pattern === "."){regex = /\.+/i;}
+else { regex = program.pattern;}
 
 // Put input pattern into transform stream. It will convert string -> RegExp
-var transformStream = inputStream.pipe(new TransformStream(input_pattern));
+var transformStream = inputStream.pipe(new TransformStream(regex));
 
 var output = []
 
@@ -100,7 +109,6 @@ transformStream.on(
 	function(){
 		var content = null;
 		while(content = this.read()){
-			//console.log(content.toString("utf8"));
 			output.push(content.toString("utf8").trim());
 		
 		}
